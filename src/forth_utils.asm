@@ -101,6 +101,7 @@ RUN_SUBSTRING: .(
     stz CURLINE_IDX
     ldy #$0
     lda (LL_CURL), y
+    clc
     adc #$3
     adc LL_CURL
     sta LL_CURL

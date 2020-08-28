@@ -2,7 +2,13 @@
 //#define TEST_PARSE
 //#define NO_TITLE
 //#define PARN_IGNORE
-* = $2000
+#define RAM_LOAD
+
+#ifdef RAM_LOAD
+    * = $2000
+#else
+    * = $E288
+#endif
 
 CHAROUT             = $8001
 CHARIN              = $8002
@@ -45,7 +51,8 @@ WHILE_LOOP_IDX      = $22
 LINE_IN             = $0200     ; 0200 - 0300
 STACK               = $0300     ; 0300 - 0400
 TOKEN_BUFF          = $0500     ; 0400 - 040F
-USER_FUNC           = $0600     ; arbitrary for now
+VARIABLE_PAGE       = $0600
+USER_FUNC           = $0700     ; arbitrary for now
 
 INIT:
     clc
@@ -182,44 +189,11 @@ NOT_BUILTIN_WORD:       ; check for user-defined function
     sta LL_CURL
     lda #>USER_FUNC
     sta LL_CURH
-USER_SEEK:
-    ldy #$0
-    lda (LL_CURL), y  ; seek through the RAM list for a custom function
-    beq NOT_WORD        ; if function name length == 0, stop seeking
-    cmp WORD_LEN
-    bne USER_SKIP
-USER_CHECK:
-    clc
-    tax
-    tay
-    dex
-USER_CHECK_LOOP:
-    lda (LL_CURL), y
-    cmp TOKEN_BUFF, x
-    bne USER_SKIP
-    dey
-    cpy #$0
-    beq USER_FOUND
-    dex
-    jmp USER_CHECK_LOOP
-USER_FOUND:
+    jsr USER_SEEK
+    beq NOT_WORD
     jmp RUN_SUBSTRING
-#print USER_FOUND
-USER_SKIP:
-    clc
-    ldy #$0
-    lda (LL_CURL), y    ; lookup current function name length
-    adc #$1             ; add one to offset byte we just looked up
-    tay
-    lda (LL_CURL), y    ; fetch low portion of next pointer
-    tax
-    iny
-    lda (LL_CURL), y    ; fetch high portion of next pointer
-    sta LL_CURH
-    txa
-    sta LL_CURL
-    lda WORD_LEN
-    jmp USER_SEEK
+    
+
 NOT_WORD:               ; try to interpret token as integer
 #print NOT_WORD
     ldy #$0             ; reload the first character of the token
@@ -271,6 +245,49 @@ BAD_WORD:
     jmp MAIN
 .)
 
+
+; This function is called from the main interpreter loop and F_SEE
+USER_SEEK: .(
+    ldy #$0
+    lda (LL_CURL), y  ; seek through the RAM list for a custom function
+    beq NOT_FOUND     ; if function name length == 0, stop seeking
+    cmp WORD_LEN
+    bne USER_SKIP
+USER_CHECK:
+    clc
+    tax
+    tay
+    dex
+USER_CHECK_LOOP:
+    lda (LL_CURL), y
+    cmp TOKEN_BUFF, x
+    bne USER_SKIP
+    dey
+    cpy #$0
+    beq FOUND
+    dex
+    jmp USER_CHECK_LOOP
+USER_SKIP:
+    clc
+    ldy #$0
+    lda (LL_CURL), y    ; lookup current function name length
+    adc #$1             ; add one to offset byte we just looked up
+    tay
+    lda (LL_CURL), y    ; fetch low portion of next pointer
+    tax
+    iny
+    lda (LL_CURL), y    ; fetch high portion of next pointer
+    sta LL_CURH
+    txa
+    sta LL_CURL
+    lda WORD_LEN
+    jmp USER_SEEK
+NOT_FOUND:
+    rts
+FOUND:
+    lda #$1
+    rts
+.)
 
 #include "src/ascii_const.asm"
 #include "src/getline.asm"

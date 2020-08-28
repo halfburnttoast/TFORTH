@@ -1,13 +1,90 @@
 ; BUILT-IN FUNCTIONS
 ; Called via function pointer in linked-list
-
-; Begin while loop. Works more like a do-while loop. The conditional
-; is checked at the end of the first loop rather than the beginning.
 #ifdef PARN_IGNORE
 F_IGNORE:
     jmp FUNC_END
 #endif
 
+F_SEE: .(
+    jsr GETTOKEN
+    jsr COPY_TOKEN
+    lda #<USER_FUNC
+    sta LL_CURL
+    lda #>USER_FUNC
+    sta LL_CURH
+    jsr USER_SEEK
+    beq E
+    ldy #$0
+    lda (LL_CURL), y
+    adc #$2
+    adc LL_CURL
+    sta LL_CURL
+    bcc NO_CARRY
+    inc LL_CURH
+NO_CARRY:
+    ldx LL_CURL
+    ldy LL_CURH
+    jsr PRINTS
+    jsr NEWLINE
+E:  jmp FUNC_END
+.)
+
+
+F_ROT: .(
+    jsr STACK_POP   ; moves to POS 2
+    tax
+    jsr STACK_POP   ; moves to POS 3
+    tay
+    jsr STACK_POP   ; moves to POS 1
+    sta TEMP
+    tya
+    jsr STACK_PUSH
+    txa
+    jsr STACK_PUSH
+    lda TEMP
+    jsr STACK_PUSH
+    jmp FUNC_END
+.)
+
+F_OVER: .(
+    jsr STACK_POP
+    tay
+    jsr STACK_POP
+    tax
+    jsr STACK_PUSH
+    tya
+    jsr STACK_PUSH
+    txa
+    jsr STACK_PUSH
+    jmp FUNC_END
+.)
+
+; Nonblocking keyboard input. Pushes 0 if no key pressed.
+F_NOBLOCK_KEY: .(
+    lda CHARIN
+    jsr STACK_PUSH
+    jmp FUNC_END
+.)
+
+F_VAR_READ: .(
+    jsr STACK_POP
+    tax
+    lda VARIABLE_PAGE, x
+    jsr STACK_PUSH
+    jmp FUNC_END    
+.)
+
+F_VAR_WRITE: .(
+    jsr STACK_POP
+    tax
+    jsr STACK_POP
+    sta VARIABLE_PAGE, x
+    jmp FUNC_END
+.)
+
+
+; Begin while loop. Works more like a do-while loop. The conditional
+; is checked at the end of the first loop rather than the beginning.
 F_BEGIN: .(
     lda IN_WHILE_LOOP
     beq NO_NEST

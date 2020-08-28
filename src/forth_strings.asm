@@ -1,7 +1,7 @@
 ELSE_S: .byte   ".ELSE",0
 THEN_S: .byte   ".THEN",0    
 TITLE:
-    .byte "TFORTH 0.4 - AUG 2020",CR,LF,0
+    .byte "TFORTH 0.5 - AUG 2020",CR,LF,0
 STACK_UFLOW_S:
     .byte "STACK UNDERFLOW",CR,LF,0
 STACK_OFLOW_S:

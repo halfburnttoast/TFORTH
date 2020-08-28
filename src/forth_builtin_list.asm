@@ -17,6 +17,36 @@ D_PARO:
     .word F_IGNORE
 #endif
 LL_NEXTNODE:             ; add new entries after this label
+D_SEE:
+    .byte $3
+    .byte "SEE"
+    .word D_ROT
+    .word F_SEE
+D_ROT:
+    .byte $3
+    .byte "ROT"
+    .word D_OVER
+    .word F_ROT
+D_OVER:
+    .byte $4
+    .byte "OVER"
+    .word D_NOBLOCK_KEY
+    .word F_OVER
+D_NOBLOCK_KEY:
+    .byte $4
+    .byte "KEY@"
+    .word D_VAR_READ
+    .word F_NOBLOCK_KEY
+D_VAR_READ:
+    .byte $1
+    .byte "@"
+    .word D_VAR_WRITE
+    .word F_VAR_READ
+D_VAR_WRITE:
+    .byte $1
+    .byte "!"
+    .word D_WHILE
+    .word F_VAR_WRITE
 D_WHILE: 
     .byte $5
     .byte "WHILE"
