@@ -5,6 +5,276 @@ F_IGNORE:
     jmp FUNC_END
 #endif
 
+
+; Removes a function from USER_LIST.
+; First seeks function location by name
+; Then seeks starting location of next function
+;   If no next function, sets deleted functions name length to 0
+;   and relocates NEXT_USER_H/L to that new 0
+; If function next function is found
+;   Overwrite deleted function by moving entire USER_LIST down
+;   Null terminated
+F_DELETE: .(
+    jsr GETTOKEN       ; get name of function to be deleted
+    jsr COPY_TOKEN      ; copy that into TOKEN_BUFF
+    lda #<USER_FUNC
+    sta LL_CURL
+    lda #>USER_FUNC
+    sta LL_CURH
+    jsr USER_SEEK 
+    beq NOT_FOUND
+
+    ; function found, check if there is a function directly after it in memory
+    ; keep the to-be-deleted function pointer in LL_CURL/H
+    
+    ; calculate nextnode pointer, store in B16L/H (borrowed)
+    lda LL_CURL
+    sta B16L
+    lda LL_CURH
+    sta B16H
+    ldy #$0             ; fetch offset from node
+    lda (LL_CURL), y    ;   "
+    clc
+    adc #$1             ;   "
+    tay                 ;   "
+    lda (LL_CURL), y    ;   "
+    clc
+    adc LL_CURL
+    sta B16L
+    bcc NC
+    inc LL_CURH
+    clc
+NC:                     ; B16L/H now contains the absolute nextnode pointer
+    ldy #$0
+    lda (B16L), y       ; fetch first byte from nextnode (length bit)
+    beq TOP_FUNCTION    ; if length is zero, this is the top function in the list
+
+    ; not the top function. Overwrite function with definitons above it
+COPY_LOOP:
+    lda (B16L), y
+    sta (LL_CURL), y
+    cmp #$0
+    beq END
+    clc
+    inc LL_CURL
+    bcc LNC
+    inc LL_CURH
+LNC:
+    clc
+    inc B16L
+    bcc BNC
+    inc B16H
+    clc
+BNC:bra COPY_LOOP
+TOP_FUNCTION:
+END:
+    lda #$0
+    sta (LL_CURL), y    ; null out length byte of function to be deleted
+    lda LL_CURL         ; set NEXT_USER_L/H to the byte we just nulled out
+    sta NEXT_USER_L     ;   this will cause the next function def to overwrite this
+    lda LL_CURH         ;   function. No further action needed. 
+    sta NEXT_USER_H
+    jmp FUNC_END 
+NOT_FOUND:
+    ldx #<NFS
+    ldy #>NFS
+    jsr PRINTS
+    jmp MAIN
+NFS:    .byte   "FUNCTION NOT FOUND",0
+.)
+
+F_EQ0: .(
+    jsr STACK_POP
+    cmp #$0
+    beq ZERO
+    lda #$0
+E:  jsr STACK_PUSH
+    jmp FUNC_END
+ZERO:
+    lda #$FF
+    bra E
+.)
+
+F_ISNEG: .(
+    jsr STACK_POP
+    and #$80
+    cmp #$0
+    bne POS
+    lda #$0
+E:  jsr STACK_PUSH
+    jmp FUNC_END
+POS:lda #$FF
+    bra E
+.)
+
+F_SIGNED_OUT: .(
+    jsr STACK_POP
+    pha
+    and #$80
+    beq NOT_NEG
+    pla
+    and #$7F
+    sta TEMP
+    dec TEMP
+    lda #'-'
+    sta CHAROUT
+    lda #$7F
+    sec
+    sbc TEMP
+    jsr STACK_PUSH
+    jmp F_PRINT
+NOT_NEG:
+    pla
+    jsr STACK_PUSH
+    jmp F_PRINT
+.)
+
+F_HEXIN: .(
+    jsr GETTOKEN    ; get next token from line input
+    ldy CURLINE_IDX
+    stz TEMP
+L:  lda (CURLINE_L), y
+    beq END
+    cmp #' '
+    beq END
+    jsr CTON
+    tax
+    lda TEMP
+    _ROL4
+    sta TEMP
+    txa
+    ora TEMP
+    sta TEMP
+    iny
+    jmp L
+END:
+    lda TEMP
+    jsr STACK_PUSH
+    iny
+    sty CURLINE_IDX
+    jmp FUNC_END
+.)
+
+F_HEXOUT: .(
+    jsr STACK_POP
+    jsr BTOA
+    sta CHAROUT
+    sty CHAROUT
+    lda #' '
+    sta CHAROUT
+    jmp FUNC_END
+.)
+
+
+F_WORDS: .(
+    ldx #<BIS
+    ldy #>BIS
+    jsr PRINTS
+    jsr NEWLINE  
+    jsr NEWLINE
+    lda #<LL_ROOT_NODE
+    sta LL_CURL
+    lda #>LL_ROOT_NODE
+    sta LL_CURH
+SYSTEM_TRANSVERSE:
+    ldy #$0
+    lda (LL_CURL), y
+    beq ST_END
+    tax
+ST_LOOP:
+    iny
+    lda (LL_CURL), y
+    sta CHAROUT
+    dex
+    bne ST_LOOP
+    lda #' '
+    sta CHAROUT
+    iny 
+    lda (LL_CURL), y
+    tax
+    iny
+    lda (LL_CURL), y
+    sta LL_CURH
+    stx LL_CURL
+    jmp SYSTEM_TRANSVERSE
+ST_END:
+    jsr NEWLINE
+    jsr NEWLINE
+    ldx #<UDS
+    ldy #>UDS
+    jsr PRINTS
+    jsr NEWLINE  
+    jsr NEWLINE
+    lda #<USER_FUNC
+    sta LL_CURL
+    lda #>USER_FUNC
+    sta LL_CURH
+USER_TRANSVERSE:
+    ldy #$0
+    lda (LL_CURL), y
+    beq UT_END
+    tax
+UT_LOOP:
+    iny
+    lda (LL_CURL), y
+    sta CHAROUT
+    dex
+    bne UT_LOOP
+    lda #' '
+    sta CHAROUT
+    iny
+    lda (LL_CURL), y
+    clc
+    adc LL_CURL
+    sta LL_CURL
+    bcc USER_TRANSVERSE
+    inc LL_CURH
+    clc
+    jmp USER_TRANSVERSE
+UT_END:
+    jmp FUNC_END 
+BIS: .byte   "BUILT-IN FUNCTIONS:",0
+UDS: .byte   "USER FUNCTIONS:",0
+.)
+
+
+F_RANDOM:
+    lda RANDOM
+    jsr STACK_PUSH
+    jmp FUNC_END
+
+F_DROP_ALL:
+    stz STACK_OFFSET
+    jmp FUNC_END
+
+; push current loop limit to stack
+F_LOOP_GET_LIMIT: .(
+    lda IN_LOOP
+    beq ERR
+    lda LOOP_LIMIT
+    jsr STACK_PUSH
+    jmp FUNC_END
+ERR:ldx #<LOOP_ERRS
+    ldy #>LOOP_ERRS
+    jsr PRINTS
+    jmp MAIN
+.)
+
+; fetch outer loop index if available and push to stack
+F_LOOP_J: .(
+    lda IN_LOOP
+    cmp #$1             ; there must be at least two loops running for this to work
+    bcc ERR
+    beq ERR
+    lda LOOP_OUTER_IDX  ; this is set when a nested DO loop starts
+    jsr STACK_PUSH
+    jmp FUNC_END
+ERR:ldx #<NEST_LOOP_ERRS
+    ldy #>NEST_LOOP_ERRS
+    jsr PRINTS
+    jmp MAIN
+.)
+
 F_SEE: .(
     jsr GETTOKEN
     jsr COPY_TOKEN
@@ -16,15 +286,18 @@ F_SEE: .(
     beq E
     ldy #$0
     lda (LL_CURL), y
-    adc #$2
+    adc #$1
     adc LL_CURL
     sta LL_CURL
     bcc NO_CARRY
     inc LL_CURH
 NO_CARRY:
-    ldx LL_CURL
-    ldy LL_CURH
-    jsr PRINTS
+    ldy #$0
+L:  lda (LL_CURL), y
+    sta CHAROUT
+    iny
+    cmp #';'
+    bne L
     jsr NEWLINE
 E:  jmp FUNC_END
 .)
@@ -64,6 +337,28 @@ F_NOBLOCK_KEY: .(
     lda CHARIN
     jsr STACK_PUSH
     jmp FUNC_END
+.)
+
+F_VAR_INC: .(
+    jsr STACK_POP
+    tax
+    inc VARIABLE_PAGE, x
+    jmp FUNC_END
+.)
+
+F_VAR_DEC: .(
+    jsr STACK_POP
+    tax
+    dec VARIABLE_PAGE, x
+    jmp FUNC_END
+.)
+
+F_VAR_PRINT: .(
+    jsr STACK_POP
+    tax
+    lda VARIABLE_PAGE, x
+    jsr STACK_PUSH
+    jmp F_PRINT
 .)
 
 F_VAR_READ: .(
@@ -314,6 +609,7 @@ F_DO: .(
     lda LOOP_BEGIN_IDX
     pha
     lda LOOP_COUNT
+    sta LOOP_OUTER_IDX          ; store for J command 
     pha
     lda LOOP_LIMIT
     pha
@@ -452,7 +748,7 @@ F_QUIT: .(
 ; Insert a function string into RAM with the format:
 ;   1 byte  -   length of function name
 ;   n bytes -   function name string
-;   2 bytes -   pointer to next node in list
+;   1 byte  -   length of entire function def, used for calculating next node
 ;   n bytes -   string content of function, ';' terminated
 F_DEFINE: .(
     jsr GETTOKEN
@@ -495,48 +791,37 @@ CFL:lda (CURLINE_L), y
     cmp #';'                ; semicolon needs to be included in the function def
     beq SAVE_FUNC
     jmp CFL
-SAVE_FUNC:
+SAVE_FUNC:                  ; copies function def from TOKEN_BUFF to final RAM location
     ldx #$0
     ldy #$0
     lda (NEXT_USER_L), y
-    adc #$2
-    tay
+    adc #$1                 ; move into area where function is defined
+    tay                     ;   "
 SFL:lda TOKEN_BUFF, x
     sta (NEXT_USER_L), y
     inx
     iny
     cmp #';'
-    beq SAVE_NEXT_POINTER
+    beq SAVE_NEXT_OFFSET
     jmp SFL
-SAVE_NEXT_POINTER:          
-    lda #$0
-    sta (NEXT_USER_L), y
-    iny                     ; Y register now contains the offset to the next
-    lda #$0                 ;   availaible area in RAM. 
-    sta (NEXT_USER_L), y    ; Zero out the next address to terminate user list lookup
-    lda NEXT_USER_H         ; Copy this so we can set the pointer
-    sta LL_CURH
-    tya
-    clc
-    adc NEXT_USER_L         ; add offset to base pointer
-    sta LL_CURL             ; borrow this again
-    bcc NO_CARRY
-    inc LL_CURH
-NO_CARRY:                   ; LL_CURL/H now contains the full pointer to the next area
-    ldy #$0                 ;   of RAM or next node
-    lda (NEXT_USER_L), y    ; Get funciton name size again for the func we just wrote
-    adc #$1
-    tay                     ; Y now has the offset for the next node pointer in node
-    lda LL_CURL
-    sta (NEXT_USER_L), y
+SAVE_NEXT_OFFSET:
+    lda #$0                 ; terminate function def in RAM
+    sta (NEXT_USER_L), y    ;   "
+    phy
+    ldy #$0
+    lda (NEXT_USER_L), y
+    tay
     iny
-    lda LL_CURH
+    pla
     sta (NEXT_USER_L), y
-    lda LL_CURL
+    clc
+    adc NEXT_USER_L
     sta NEXT_USER_L
-    lda LL_CURH
-    sta NEXT_USER_H
-    jmp MAIN 
+    bcc NO_CARRY
+    inc NEXT_USER_H
+    clc
+NO_CARRY:
+    jmp MAIN
 ERR:ldx #<DEF_ERRS
     ldy #>DEF_ERRS
     jsr PRINTS

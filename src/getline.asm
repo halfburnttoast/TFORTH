@@ -24,7 +24,6 @@ GETLINE_BS:
     cpx #$0
     beq GETLINE
     dex
-    lda #ULIC
     sta CHAROUT
     jmp GETLINE_GETC
 GETLINE_E:

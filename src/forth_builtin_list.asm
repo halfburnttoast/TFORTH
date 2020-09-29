@@ -17,6 +17,61 @@ D_PARO:
     .word F_IGNORE
 #endif
 LL_NEXTNODE:             ; add new entries after this label
+D_DELETE:
+    .byte $6
+    .byte "DELETE"
+    .word D_EQ0
+    .word F_DELETE
+D_EQ0:
+    .byte $2
+    .byte "=0"
+    .word D_ISNEG
+    .word F_EQ0
+D_ISNEG:
+    .byte $4
+    .byte "NEG?"
+    .word D_SIGNED_OUT
+    .word F_ISNEG
+D_SIGNED_OUT:
+    .byte $2
+    .byte "S."
+    .word D_HEXOUT
+    .word F_SIGNED_OUT
+D_HEXOUT:
+    .byte $2
+    .byte "$."
+    .word D_HEXIN
+    .word F_HEXOUT
+D_HEXIN:
+    .byte $1
+    .byte "$"
+    .word D_WORDS
+    .word F_HEXIN
+D_WORDS:
+    .byte $5
+    .byte "WORDS"
+    .word D_RANDOM
+    .word F_WORDS
+D_RANDOM:
+    .byte $6
+    .byte "RANDOM"
+    .word D_DROP_ALL
+    .word F_RANDOM
+D_DROP_ALL:
+    .byte $7
+    .byte "DROPALL"
+    .word D_LOOP_GET_LIMIT
+    .word F_DROP_ALL
+D_LOOP_GET_LIMIT:
+    .byte $2
+    .byte "I'"
+    .word D_LOOP_J
+    .word F_LOOP_GET_LIMIT
+D_LOOP_J:
+    .byte $1
+    .byte "J"
+    .word D_SEE
+    .word F_LOOP_J
 D_SEE:
     .byte $3
     .byte "SEE"
@@ -35,8 +90,23 @@ D_OVER:
 D_NOBLOCK_KEY:
     .byte $4
     .byte "KEY@"
-    .word D_VAR_READ
+    .word D_VAR_INC
     .word F_NOBLOCK_KEY
+D_VAR_INC:
+    .byte $3
+    .byte "!++"
+    .word D_VAR_DEC
+    .word F_VAR_INC
+D_VAR_DEC:
+    .byte $3
+    .byte "!--"
+    .word D_VAR_PRINT
+    .word F_VAR_DEC
+D_VAR_PRINT:
+    .byte $1
+    .byte "?"
+    .word D_VAR_READ
+    .word F_VAR_PRINT
 D_VAR_READ:
     .byte $1
     .byte "@"

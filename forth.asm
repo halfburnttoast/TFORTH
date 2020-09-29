@@ -10,9 +10,19 @@
     * = $E288
 #endif
 
+#define _ROL4   \
+    rol     :   \
+    rol     :   \
+    rol     :   \
+    rol
+
+
+; system vectors
 CHAROUT             = $8001
 CHARIN              = $8002
+RANDOM              = $8003
 
+; ZP variables
 B16L                = $0
 B16H                = $1
 PRL                 = $2
@@ -48,6 +58,9 @@ LOOP_LIMIT          = $1F
 IN_IF_BLOCK         = $20
 IN_WHILE_LOOP       = $21
 WHILE_LOOP_IDX      = $22
+LOOP_OUTER_IDX      = $23
+
+; buffers
 LINE_IN             = $0200     ; 0200 - 0300
 STACK               = $0300     ; 0300 - 0400
 TOKEN_BUFF          = $0500     ; 0400 - 040F
@@ -70,7 +83,7 @@ INIT:
 #endif
 
 #ifdef PRELOAD_TEST_FUNCTION
-.(
+.(              ; FUNCTION DEF BLOCK MUST BE TERMINATED BY $
     ldy #$0
 L:  lda TF, y
     cmp #'$'
@@ -78,19 +91,17 @@ L:  lda TF, y
     sta (NEXT_USER_L), y
     iny
     jmp L
-E:  lda #$32
+E:  lda #$0C
     sta NEXT_USER_L
     lda #$06
     sta NEXT_USER_H
     jmp MAIN
-TF: .byte   $4
-    .byte   "UFUN"
-    .word   $0619
-    .byte   "2 . .",$22," STRING!",$22," ;",$0
-    .byte   $3
-    .byte   "YAY"
-    .word   $0632
-    .byte   "DUP * . ;",$0,"$"
+TF: .byte   $1, 'X'
+    .byte   $6
+    .byte   "0 ;"
+    .byte   $1, 'Y'
+    .byte   $6
+    .byte   "1 ;",$0,"$"
 .)
 #endif
 
@@ -109,7 +120,7 @@ TEST: .(
     ldy #>CMD
     jsr PARSE_LINE
     brk
-CMD:    .byte   "2 0 DO CR LOOP",0
+CMD:    .byte   "DELETE X",0
 .)
 #endif
     jsr GETLINE
@@ -246,7 +257,7 @@ BAD_WORD:
 .)
 
 
-; This function is called from the main interpreter loop and F_SEE
+; This function is called from the main interpreter loop, F_SEE, F_DELETE
 USER_SEEK: .(
     ldy #$0
     lda (LL_CURL), y  ; seek through the RAM list for a custom function
@@ -270,19 +281,20 @@ USER_CHECK_LOOP:
 USER_SKIP:
     clc
     ldy #$0
-    lda (LL_CURL), y    ; lookup current function name length
-    adc #$1             ; add one to offset byte we just looked up
+    lda (LL_CURL), y    ; fetch offset from link-list to next node
+    adc #$1
     tay
-    lda (LL_CURL), y    ; fetch low portion of next pointer
-    tax
-    iny
-    lda (LL_CURL), y    ; fetch high portion of next pointer
-    sta LL_CURH
-    txa
+    lda (LL_CURL), y
+    clc
+    adc LL_CURL
     sta LL_CURL
-    lda WORD_LEN
+    bcc NO_CARRY
+    inc LL_CURH
+    clc
+NO_CARRY:
     jmp USER_SEEK
 NOT_FOUND:
+    lda #$0
     rts
 FOUND:
     lda #$1

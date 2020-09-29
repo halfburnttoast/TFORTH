@@ -80,6 +80,8 @@ L:  lda (CURLINE_L), y
     sta TOKEN_BUFF, x
     inx
     iny
+    cmp #';'
+    beq E
     jmp L
 E:  stx WORD_LEN
     sty CURLINE_IDX
@@ -102,7 +104,7 @@ RUN_SUBSTRING: .(
     ldy #$0
     lda (LL_CURL), y
     clc
-    adc #$3
+    adc #$2
     adc LL_CURL
     sta LL_CURL
     bcc NO_CARRY
