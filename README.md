@@ -1,6 +1,6 @@
 # TFORTH
 
-A weird, eventually ROMable, fully-interpreted Forth implementation for my custom 65C02 SBC.
+A weird, ROMable, fully-interpreted Forth implementation for my custom 65C02 SBC.
 
 This implementation of Forth is mainly just a programming exercise for me. I've never used Forth before, but wanted to be able to develop programs from the computer itself. Other, and frankly better, versions of Forth exist for the 6502. But, the architecture of my SBC is odd enough that porting existing Forths hasn’t worked too well. 
 
