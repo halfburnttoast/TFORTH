@@ -2,13 +2,25 @@
 //#define TEST_PARSE
 //#define NO_TITLE
 //#define PARN_IGNORE
-#define RAM_LOAD
+//#define RAM_LOAD
 
 #ifdef RAM_LOAD
     * = $2000
 #else
     * = $E288
 #endif
+
+#define _PUSH_FRAME \
+    pha         :   \
+    phx         :   \
+    phy         :   \
+    php
+
+#define _PULL_FRAME \
+    plp         :   \
+    ply         :   \
+    plx         :   \
+    pla
 
 #define _ROL4   \
     rol     :   \
@@ -59,6 +71,11 @@ IN_IF_BLOCK         = $20
 IN_WHILE_LOOP       = $21
 WHILE_LOOP_IDX      = $22
 LOOP_OUTER_IDX      = $23
+EXT_MEM_L           = $24
+EXT_MEM_H           = $25
+ARGA                = $26
+ARGX                = $27
+ARGY                = $28
 
 ; buffers
 LINE_IN             = $0200     ; 0200 - 0300
@@ -67,10 +84,9 @@ TOKEN_BUFF          = $0500     ; 0400 - 040F
 VARIABLE_PAGE       = $0600
 USER_FUNC           = $0700     ; arbitrary for now
 
-INIT:
+INIT: .(
     clc
     stz STACK_OFFSET
-    stz USER_FUNC       ; null out first node in linked list
     lda #<USER_FUNC     ; Reset pointer to next available address in RAM for
     sta NEXT_USER_L     ;   user function definitions.
     lda #>USER_FUNC     ;   "
@@ -81,7 +97,27 @@ INIT:
     ldy #>TITLE
     jsr PRINTS
 #endif
-
+BAD_OPTION:
+    jsr NEWLINE
+    ldx #<WCS
+    ldy #>WCS
+    jsr PRINTS
+L:  lda CHARIN
+    sta CHAROUT
+    beq L
+    cmp #'W'
+    beq WARM
+    cmp #'C'
+    beq COLD
+    jmp BAD_OPTION
+WARM:
+    jsr STARTUP_WARM
+    bra WC_END
+COLD:
+    stz USER_FUNC
+WC_END:
+    jmp MAIN
+WCS:    .byte   "WARM/COLD?: ",0
 #ifdef PRELOAD_TEST_FUNCTION
 .(              ; FUNCTION DEF BLOCK MUST BE TERMINATED BY $
     ldy #$0
@@ -104,6 +140,7 @@ TF: .byte   $1, 'X'
     .byte   "1 ;",$0,"$"
 .)
 #endif
+.)
 
 MAIN:
     ldx #$FF
@@ -301,6 +338,23 @@ FOUND:
     rts
 .)
 
+; reloads user function list. Scans through USER_LIST until it finds 
+; a null terminator. This null terminator is NEXT_USER_L/H
+STARTUP_WARM: .(
+    ldy #$0
+SEEK_LOOP:
+    lda (NEXT_USER_L), y
+    beq END
+    clc
+    inc NEXT_USER_L
+    bne NO_CARRY
+    inc NEXT_USER_H
+    clc
+NO_CARRY:
+    jmp SEEK_LOOP
+END:rts
+.)
+
 #include "src/ascii_const.asm"
 #include "src/getline.asm"
 #include "src/util.asm"
@@ -310,4 +364,5 @@ FOUND:
 #include "src/forth_strings.asm"
 #include "src/forth_utils.asm"
 #include "src/forth_builtin_funcdefs.asm"
+
 

@@ -5,6 +5,103 @@ F_IGNORE:
     jmp FUNC_END
 #endif
 
+; The 6502 does not support indirect subroutines calls
+; so this function does the work needed to emulate one
+F_CALL: .(
+    _PUSH_FRAME
+    lda #<CALL_RETURN       ; return addresses are pushed in reverse order
+    ldx #>CALL_RETURN
+    sec
+    sbc #$1                 ; on return, RTS automatically increments the PC by 1
+    bcs NO_CARRY
+    dex
+NO_CARRY:
+    clc
+    phx                     ; push the return address to allow RTS to work
+    pha
+    lda ARGA
+    ldx ARGX
+    ldy ARGY
+    jmp (EXT_MEM_L)
+CALL_RETURN:                ; the next RTS call will fall to this label
+    _PULL_FRAME 
+    jmp FUNC_END
+.)
+
+F_ARGX:
+    jsr STACK_POP
+    sta ARGX
+    jmp FUNC_END
+
+F_ARGY:
+    jsr STACK_POP
+    sta ARGY
+    jmp FUNC_END
+
+F_ARGA:
+    jsr STACK_POP
+    sta ARGA
+    jmp FUNC_END
+
+; EXT_MEM_L
+; EXT_MEM_H
+F_EXML_SET: .(
+    jsr STACK_POP
+    sta EXT_MEM_L
+    jmp FUNC_END 
+.)
+
+F_EXML_GET: .(
+    lda EXT_MEM_L
+    jsr STACK_PUSH
+    jmp FUNC_END
+.)
+
+F_EXMH_SET: .(
+    jsr STACK_POP
+    sta EXT_MEM_H
+    jmp FUNC_END
+.)
+
+F_EXMH_GET: .(
+    lda EXT_MEM_H
+    jsr STACK_PUSH
+    jmp FUNC_END
+.)
+
+F_EXMP_INC: .(
+    inc EXT_MEM_L
+    bne NC
+    inc EXT_MEM_H
+NC: jmp FUNC_END
+.)
+
+F_EXMP_DEC: .(
+    dec EXT_MEM_L
+    lda #$FF
+    cmp EXT_MEM_L
+    bne NC
+    dec EXT_MEM_H
+NC: jmp FUNC_END
+.)
+
+F_EXM_READ: .(
+    phy
+    ldy #$0
+    lda (EXT_MEM_L), y
+    ply
+    jsr STACK_PUSH
+    jmp FUNC_END
+.)
+
+F_EXM_WRITE: .(
+    jsr STACK_POP
+    phy
+    ldy #$0
+    sta (EXT_MEM_L), y
+    ply
+    jmp FUNC_END
+.)
 
 ; Removes a function from USER_LIST.
 ; First seeks function location by name
@@ -42,7 +139,7 @@ F_DELETE: .(
     adc LL_CURL
     sta B16L
     bcc NC
-    inc LL_CURH
+    inc B16H
     clc
 NC:                     ; B16L/H now contains the absolute nextnode pointer
     ldy #$0
@@ -56,12 +153,15 @@ COPY_LOOP:
     cmp #$0
     beq END
     clc
-    inc LL_CURL
+    lda LL_CURL
+    adc #$1
+    sta LL_CURL
     bcc LNC
     inc LL_CURH
-LNC:
     clc
-    inc B16L
+LNC:lda B16L
+    adc #$1
+    sta B16L
     bcc BNC
     inc B16H
     clc
@@ -434,6 +534,15 @@ ONE:
     bra E
 .)
 
+F_XOR: .(
+    jsr STACK_POP
+    sta TEMP
+    jsr STACK_POP
+    eor TEMP
+    jsr STACK_PUSH
+    jmp FUNC_END
+.)
+
 F_OR: .(
     jsr STACK_POP
     sta TEMP
@@ -651,7 +760,7 @@ F_MOD:
 F_DIV: .(
     jsr STACK_POP
     cmp #$0
-    jmp ERR
+    beq ERR
     tax
     jsr STACK_POP
     jsr DIV

@@ -18,6 +18,7 @@ PRINTS_LOOP:
     jmp PRINTS_LOOP
 PRINTS_END:
     rts
+#print PRINTS
 
 
 NEWLINE:

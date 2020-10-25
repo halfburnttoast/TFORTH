@@ -17,6 +17,66 @@ D_PARO:
     .word F_IGNORE
 #endif
 LL_NEXTNODE:             ; add new entries after this label
+D_CALL:
+    .byte $7
+    .byte "EXMCALL"
+    .word D_ARGX
+    .word F_CALL
+D_ARGX:
+    .byte $5
+    .byte "ARGX!"
+    .word D_ARGY
+    .word F_ARGX
+D_ARGY:
+    .byte $5
+    .byte "ARGY!"
+    .word D_ARGA
+    .word F_ARGY
+D_ARGA:
+    .byte $5
+    .byte "ARGA!"
+    .word D_EXML_SET
+    .word F_ARGA
+D_EXML_SET:
+    .byte $5
+    .byte "EXML!"
+    .word D_EXML_GET
+    .word F_EXML_SET
+D_EXML_GET:
+    .byte $5
+    .byte "EXML@"
+    .word D_EXMH_SET
+    .word F_EXML_GET
+D_EXMH_SET:
+    .byte $5
+    .byte "EXMH!"
+    .word D_EXMH_GET
+    .word F_EXMH_SET
+D_EXMH_GET:
+    .byte $5
+    .byte "EXMH@"
+    .word D_EXMP_INC
+    .word F_EXMH_GET
+D_EXMP_INC:
+    .byte $6
+    .byte "EXMP++"
+    .word D_EXMP_DEC
+    .word F_EXMP_INC
+D_EXMP_DEC:
+    .byte $6
+    .byte "EXMP--"
+    .word D_EXM_READ
+    .word F_EXMP_DEC
+D_EXM_READ:
+    .byte $4
+    .byte "EXM@"
+    .word D_EXM_WRITE
+    .word F_EXM_READ
+D_EXM_WRITE:
+    .byte $4
+    .byte "EXM!"
+    .word D_DELETE
+    .word F_EXM_WRITE
 D_DELETE:
     .byte $6
     .byte "DELETE"
@@ -145,8 +205,13 @@ D_INVERT:
 D_OR: 
     .byte $2
     .byte "OR"
-    .word D_AND
+    .word D_XOR
     .word F_OR
+D_XOR
+    .byte $3
+    .byte "XOR
+    .word D_AND
+    .word F_XOR
 D_AND:
     .byte $3
     .byte "AND"
